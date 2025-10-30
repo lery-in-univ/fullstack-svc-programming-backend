@@ -1,5 +1,4 @@
-import { Entity, Column, PrimaryColumn, OneToMany } from 'typeorm';
-import { ExecutionJob } from './execution-job.entity';
+import { Entity, Column, PrimaryColumn } from 'typeorm';
 
 @Entity('User')
 export class User {
@@ -9,12 +8,12 @@ export class User {
   @Column({ type: 'varchar', length: 100 })
   email: string;
 
-  @Column({ type: 'varchar', length: 255 })
-  password: string;
+  @Column({ type: 'varchar', length: 100 })
+  passwordHash: string;
+
+  @Column({ type: 'varchar', length: 100 })
+  salt: string;
 
   @Column({ type: 'datetime', precision: 3 })
   createdAt: Date;
-
-  @OneToMany(() => ExecutionJob, (job) => job.user)
-  executionJobs: ExecutionJob[];
 }

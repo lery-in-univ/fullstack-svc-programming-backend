@@ -1,12 +1,4 @@
-import {
-  Entity,
-  Column,
-  PrimaryColumn,
-  ManyToOne,
-  OneToMany,
-  JoinColumn,
-} from 'typeorm';
-import { User } from './user.entity';
+import { Entity, Column, PrimaryColumn, OneToMany } from 'typeorm';
 import { ExecutionJobStatus } from './execution-job-status.entity';
 
 @Entity('ExecutionJob')
@@ -19,10 +11,6 @@ export class ExecutionJob {
 
   @Column({ type: 'datetime', precision: 3 })
   createdAt: Date;
-
-  @ManyToOne(() => User, (user) => user.executionJobs)
-  @JoinColumn({ name: 'userId' })
-  user: User;
 
   @OneToMany(() => ExecutionJobStatus, (status) => status.job)
   statuses: ExecutionJobStatus[];
