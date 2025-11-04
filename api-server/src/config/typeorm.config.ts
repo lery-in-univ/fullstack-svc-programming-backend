@@ -1,6 +1,6 @@
 import { TypeOrmModuleOptions } from '@nestjs/typeorm';
 
-import { ExecutionJobStatus } from 'src/entities/execution-job-status.entity';
+import { ExecutionJobStatus } from 'src/entities/execution-job-status-log.entity';
 import { ExecutionJob } from 'src/entities/execution-job.entity';
 import { User } from 'src/entities/user.entity';
 

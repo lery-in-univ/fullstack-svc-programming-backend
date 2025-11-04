@@ -1,5 +1,5 @@
 import { Entity, Column, PrimaryColumn, OneToMany } from 'typeorm';
-import { ExecutionJobStatus } from './execution-job-status.entity';
+import { ExecutionJobStatusLog } from './execution-job-status-log.entity';
 
 @Entity('ExecutionJob')
 export class ExecutionJob {
@@ -9,9 +9,12 @@ export class ExecutionJob {
   @Column({ type: 'varchar', length: 50 })
   userId: string;
 
+  @Column({ type: 'varchar', length: 200 })
+  filePath: string;
+
   @Column({ type: 'datetime', precision: 3 })
   createdAt: Date;
 
-  @OneToMany(() => ExecutionJobStatus, (status) => status.job)
-  statuses: ExecutionJobStatus[];
+  @OneToMany(() => ExecutionJobStatusLog, (status) => status.job)
+  statuses: ExecutionJobStatusLog[];
 }
