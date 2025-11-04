@@ -4,6 +4,7 @@ import {
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { Requester } from 'src/auth/requester.decorator';
 import { User } from 'src/entities/user.entity';
 import { PasswordHashCreator } from 'src/util/password-hash-creator';
 import { TokenManager } from 'src/util/token-manager';
@@ -57,6 +58,7 @@ export class UserService {
     const { passwordHash, salt } = user;
     this.passwordHashCreator.verify(password, { hash: passwordHash, salt });
 
-    return this.tokenManager.create(user.id);
+    const requester: Requester = { userId: user.id };
+    return this.tokenManager.create(requester);
   }
 }
