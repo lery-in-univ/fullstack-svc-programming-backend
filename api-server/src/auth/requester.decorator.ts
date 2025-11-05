@@ -5,8 +5,7 @@ export type Requester = {
   userId: string;
 };
 
-export const GetRequester = () =>
-  createParamDecorator((data, ctx) => {
-    const req = ctx.switchToHttp().getRequest<Request>();
-    return req['requester'] as Requester;
-  });
+export const GetRequester = createParamDecorator((data, ctx) => {
+  const req = ctx.switchToHttp().getRequest<Request>();
+  return req['requester'] as Requester;
+});
