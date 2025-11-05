@@ -13,12 +13,12 @@ import { ExecutionService } from './execution.service';
 import { ExecutionJob } from 'src/entities/execution-job.entity';
 import { ExecutionJobStatusLog } from 'src/entities/execution-job-status-log.entity';
 
-@Controller('execution')
+@Controller()
 export class ExecutionController {
   constructor(private readonly executionService: ExecutionService) {}
 
   @Auth()
-  @Post('jobs')
+  @Post('/execution-jobs')
   async createExecutionJob(
     @GetRequester() requester: Requester,
     @Body('filePath') filePath: string,
@@ -36,7 +36,7 @@ export class ExecutionController {
   }
 
   @Auth()
-  @Get('jobs')
+  @Get('/execution-jobs')
   async getExecutionJobs(@GetRequester() requester: Requester) {
     const jobs = await this.executionService.findExecutionJobsByUserId(
       requester.userId,
@@ -61,10 +61,10 @@ export class ExecutionController {
   }
 
   @Auth()
-  @Get('jobs/:id')
+  @Get('/execution-jobs/:jobId')
   async getExecutionJob(
     @GetRequester() requester: Requester,
-    @Param('id') id: string,
+    @Param('jobId') id: string,
   ) {
     const job = await this.executionService.findExecutionJobById(
       id,
