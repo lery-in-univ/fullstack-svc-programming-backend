@@ -1,6 +1,7 @@
 import {
   CanActivate,
   ExecutionContext,
+  Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
 import { AuthMetadataKey } from './auth.decorator';
@@ -8,6 +9,7 @@ import { TypedReflect } from 'src/util/typed-reflect';
 import { Request } from 'express';
 import { RequestValidator } from './request-validator';
 
+@Injectable()
 export class AuthGuard implements CanActivate {
   constructor(private readonly requestValidator: RequestValidator) {}
 

@@ -1,8 +1,9 @@
-import { UnauthorizedException } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { Request } from 'express';
 import { TokenManager } from 'src/util/token-manager';
 import { Requester } from './requester.decorator';
 
+@Injectable()
 export class RequestValidator {
   constructor(private readonly tokenManager: TokenManager) {}
 
@@ -12,7 +13,7 @@ export class RequestValidator {
       throw new UnauthorizedException('인증이 필요합니다.');
     }
 
-    const token = authHeader.split(' ')[0];
+    const token = authHeader.split(' ')[1];
     if (!token) {
       throw new UnauthorizedException('인증이 필요합니다.');
     }
