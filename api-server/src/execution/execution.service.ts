@@ -1,8 +1,10 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { Queue } from 'bullmq';
 import { ExecutionJob } from 'src/entities/execution-job.entity';
 import { ExecutionJobStatusLog } from 'src/entities/execution-job-status-log.entity';
 import { ExecutionJobStatus } from 'src/entities/execution-job-status';
+import { EXECUTION_QUEUE } from 'src/queue/queue.provider';
 import { DataSource, Repository } from 'typeorm';
 import { ulid } from 'ulid';
 
@@ -13,13 +15,16 @@ export class ExecutionService {
     private readonly executionJobRepository: Repository<ExecutionJob>,
 
     private readonly dataSource: DataSource,
+
+    @Inject(EXECUTION_QUEUE)
+    private readonly executionQueue: Queue,
   ) {}
 
   async createExecutionJob(
     userId: string,
     filePath: string,
   ): Promise<ExecutionJob> {
-    return await this.dataSource.transaction(async (em) => {
+    const newJob = await this.dataSource.transaction(async (em) => {
       const executionJobRepository = em.getRepository(ExecutionJob);
       const executionJobStatusLogRepository = em.getRepository(
         ExecutionJobStatusLog,
@@ -46,6 +51,13 @@ export class ExecutionService {
 
       return newJob;
     });
+
+    // Publish execution task to BullMQ after DB transaction commits
+    await this.executionQueue.add('execute-code', {
+      jobId: newJob.id,
+    });
+
+    return newJob;
   }
 
   async findExecutionJobsByUserId(
