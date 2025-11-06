@@ -9,6 +9,7 @@ import { redisConfig } from "../config/redis.config";
 import { promises as fs } from "fs";
 import { join } from "path";
 import { ulid } from "ulid";
+import Docker from "dockerode";
 
 interface ExecutionJobData {
   jobId: string;
@@ -17,6 +18,7 @@ interface ExecutionJobData {
 @Injectable()
 export class ExecutionProcessor implements OnModuleInit, OnModuleDestroy {
   private worker: Worker;
+  private docker: Docker;
 
   constructor(
     @InjectRepository(ExecutionJob)
@@ -24,7 +26,13 @@ export class ExecutionProcessor implements OnModuleInit, OnModuleDestroy {
 
     @InjectRepository(ExecutionJobStatusLog)
     private readonly executionJobStatusLogRepository: Repository<ExecutionJobStatusLog>
-  ) {}
+  ) {
+    const dockerHost = process.env.DOCKER_HOST || "tcp://dind:2375";
+    this.docker = new Docker({
+      host: dockerHost.replace("tcp://", "").split(":")[0],
+      port: parseInt(dockerHost.split(":")[2] || "2375"),
+    });
+  }
 
   async onModuleInit() {
     this.worker = new Worker(
@@ -78,10 +86,32 @@ export class ExecutionProcessor implements OnModuleInit, OnModuleDestroy {
 
       await this.createStatusLog(jobId, ExecutionJobStatus.RUNNING);
 
-      // TODO: Implement actual code execution logic here
-      // For now, just read the file to verify it's accessible
-      const fileContent = await fs.readFile(fullPath, "utf-8");
-      console.log(`File content length: ${fileContent.length} bytes`);
+      console.log("Creating busybox container...");
+      const container = await this.docker.createContainer({
+        Image: "busybox",
+        Cmd: ["echo", "hello"],
+        AttachStdout: true,
+        AttachStderr: true,
+      });
+
+      console.log(`Container created: ${container.id}`);
+
+      await container.start();
+      console.log("Container started");
+
+      await container.wait();
+      console.log("Container finished");
+
+      const logs = await container.logs({
+        stdout: true,
+        stderr: true,
+        follow: false,
+      });
+
+      console.log("Container output:", logs.toString());
+
+      await container.remove();
+      console.log("Container removed");
 
       await this.createStatusLog(
         jobId,
