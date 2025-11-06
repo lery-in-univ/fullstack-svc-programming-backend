@@ -11,6 +11,10 @@ services:
         condition: service_healthy
       redis:
         condition: service_started
+    volumes:
+      - code-files:/code-files
+    environment:
+      - CODE_FILES_PATH=/code-files
 
   worker:
     build:
@@ -22,6 +26,10 @@ services:
         condition: service_healthy
       redis:
         condition: service_started
+    volumes:
+      - code-files:/code-files
+    environment:
+      - CODE_FILES_PATH=/code-files
 
   mysql:
     image: mysql:8.4.7
@@ -45,3 +53,6 @@ services:
     container_name: redis
     ports:
       - 6379:6379
+
+volumes:
+  code-files:

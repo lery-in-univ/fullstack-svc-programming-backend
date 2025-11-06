@@ -7,6 +7,8 @@ import { ExecutionJobStatus } from 'src/entities/execution-job-status';
 import { EXECUTION_QUEUE } from 'src/queue/queue.provider';
 import { DataSource, Repository } from 'typeorm';
 import { ulid } from 'ulid';
+import { promises as fs } from 'fs';
+import { join } from 'path';
 
 @Injectable()
 export class ExecutionService {
@@ -22,8 +24,22 @@ export class ExecutionService {
 
   async createExecutionJob(
     userId: string,
-    filePath: string,
+    file: Express.Multer.File,
   ): Promise<ExecutionJob> {
+    const fileExtension = file.originalname.substring(
+      file.originalname.lastIndexOf('.'),
+    );
+    const fileName = `${ulid()}${fileExtension}`;
+
+    const basePath = process.env.CODE_FILES_PATH || '/code-files';
+
+    await fs.mkdir(basePath, { recursive: true });
+
+    const fullPath = join(basePath, fileName);
+    await fs.writeFile(fullPath, file.buffer);
+
+    const relativeFilePath = fileName;
+
     const newJob = await this.dataSource.transaction(async (em) => {
       const executionJobRepository = em.getRepository(ExecutionJob);
       const executionJobStatusLogRepository = em.getRepository(
@@ -36,7 +52,7 @@ export class ExecutionService {
       const newJob = executionJobRepository.create({
         id: jobId,
         userId,
-        filePath,
+        filePath: relativeFilePath,
         createdAt: now,
       });
       await executionJobRepository.save(newJob);
