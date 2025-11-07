@@ -12,7 +12,11 @@ CREATE TABLE IF NOT EXISTS ExecutionJob (
   id VARCHAR(50) PRIMARY KEY,
   userId VARCHAR(50) NOT NULL,
   filePath VARCHAR(200) NOT NULL,
-  createdAt DATETIME(3) NOT NULL
+  createdAt DATETIME(3) NOT NULL,
+  output TEXT NULL,
+  error TEXT NULL,
+  exitCode INT NULL,
+  completedAt DATETIME(3) NULL
 );
 
 CREATE TABLE IF NOT EXISTS ExecutionJobStatusLog (

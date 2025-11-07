@@ -9,7 +9,7 @@ import { redisConfig } from "../config/redis.config";
 import { promises as fs } from "fs";
 import { join } from "path";
 import { ulid } from "ulid";
-import Docker from "dockerode";
+import Docker, { Container } from "dockerode";
 
 interface ExecutionJobData {
   jobId: string;
@@ -27,10 +27,8 @@ export class ExecutionProcessor implements OnModuleInit, OnModuleDestroy {
     @InjectRepository(ExecutionJobStatusLog)
     private readonly executionJobStatusLogRepository: Repository<ExecutionJobStatusLog>
   ) {
-    const dockerHost = process.env.DOCKER_HOST || "tcp://dind:2375";
     this.docker = new Docker({
-      host: dockerHost.replace("tcp://", "").split(":")[0],
-      port: parseInt(dockerHost.split(":")[2] || "2375"),
+      socketPath: "/var/run/docker.sock",
     });
   }
 
@@ -86,21 +84,59 @@ export class ExecutionProcessor implements OnModuleInit, OnModuleDestroy {
 
       await this.createStatusLog(jobId, ExecutionJobStatus.RUNNING);
 
-      console.log("Creating busybox container...");
-      const container = await this.docker.createContainer({
-        Image: "busybox",
-        Cmd: ["echo", "hello"],
+      console.log("Creating Dart container...");
+
+      const volumeName =
+        process.env.CODE_FILES_VOLUME ||
+        "fullstack-svc-programming-backend_code-files";
+      const containerFilePath = `/code-files/${executionJob.filePath}`;
+
+      const container = (await this.docker.createContainer({
+        Image: "dart:3.9.4",
+        Cmd: ["dart", "run", containerFilePath],
         AttachStdout: true,
         AttachStderr: true,
-      });
+        HostConfig: {
+          Binds: [`${volumeName}:/code-files:ro`],
+          Memory: 256 * 1024 * 1024, // 256MB
+          NanoCpus: 0.5 * 1e9, // 0.5 CPU
+          NetworkMode: "none", // 네트워크 접근 제한
+        },
+      })) as unknown as Container;
 
       console.log(`Container created: ${container.id}`);
 
       await container.start();
       console.log("Container started");
 
-      await container.wait();
-      console.log("Container finished");
+      // 30초 타임아웃 적용
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("Execution timeout (30s)")), 30000)
+      );
+
+      const waitPromise = container.wait();
+
+      let waitResult;
+      try {
+        waitResult = await Promise.race([waitPromise, timeoutPromise]);
+      } catch (timeoutError) {
+        await container.kill().catch(() => {});
+        await container.remove().catch(() => {});
+
+        await this.executionJobRepository.update(jobId, {
+          error: "Execution timeout (30s)",
+          exitCode: -1,
+          completedAt: new Date(),
+        });
+
+        await this.createStatusLog(
+          jobId,
+          ExecutionJobStatus.FINISHED_WITH_ERROR
+        );
+        throw timeoutError;
+      }
+
+      console.log("Container finished with exit code:", waitResult.StatusCode);
 
       const logs = await container.logs({
         stdout: true,
@@ -108,17 +144,45 @@ export class ExecutionProcessor implements OnModuleInit, OnModuleDestroy {
         follow: false,
       });
 
-      console.log("Container output:", logs.toString());
+      const output = logs.toString();
+      console.log("Container output:", output);
 
       await container.remove();
       console.log("Container removed");
 
-      await this.createStatusLog(
-        jobId,
-        ExecutionJobStatus.FINISHED_WITH_SUCCESS
-      );
+      // Update job with results
+      const exitCode = waitResult.StatusCode;
+      if (exitCode === 0) {
+        await this.executionJobRepository.update(jobId, {
+          output,
+          exitCode,
+          completedAt: new Date(),
+        });
+
+        await this.createStatusLog(
+          jobId,
+          ExecutionJobStatus.FINISHED_WITH_SUCCESS
+        );
+      } else {
+        await this.executionJobRepository.update(jobId, {
+          error: output,
+          exitCode,
+          completedAt: new Date(),
+        });
+
+        await this.createStatusLog(
+          jobId,
+          ExecutionJobStatus.FINISHED_WITH_ERROR
+        );
+      }
     } catch (error) {
       console.error(`Error processing job ${jobId}:`, error);
+
+      await this.executionJobRepository.update(jobId, {
+        error: error.message || String(error),
+        exitCode: -1,
+        completedAt: new Date(),
+      });
 
       await this.createStatusLog(jobId, ExecutionJobStatus.FAILED);
       throw error;

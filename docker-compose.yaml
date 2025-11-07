@@ -28,32 +28,11 @@ services:
         condition: service_healthy
       redis:
         condition: service_started
-      dind:
-        condition: service_healthy
     volumes:
       - code-files:/code-files
+      - /var/run/docker.sock:/var/run/docker.sock  # Mount host Docker socket
     environment:
       - CODE_FILES_PATH=/code-files
-      - DOCKER_HOST=tcp://dind:2375
-    networks:
-      - backend
-
-  dind:
-    image: docker:28.5.1-dind
-    container_name: dind
-    privileged: true
-    environment:
-      - DOCKER_TLS_CERTDIR=
-    volumes:
-      - docker-data:/var/lib/docker
-      - ./docker-init/init-dind.sh:/usr/local/bin/init-dind.sh:ro
-    entrypoint: ["/bin/sh", "/usr/local/bin/init-dind.sh"]
-    healthcheck:
-      test: ["CMD", "docker", "info"]
-      interval: 5s
-      timeout: 3s
-      retries: 5
-      start_period: 10s
     networks:
       - backend
 
@@ -86,7 +65,6 @@ services:
 
 volumes:
   code-files:
-  docker-data:
 
 networks:
   backend:

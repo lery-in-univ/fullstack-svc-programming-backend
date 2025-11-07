@@ -15,6 +15,18 @@ export class ExecutionJob {
   @Column({ type: 'datetime', precision: 3 })
   createdAt: Date;
 
+  @Column({ type: 'text', nullable: true })
+  output: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  error: string | null;
+
+  @Column({ type: 'int', nullable: true })
+  exitCode: number | null;
+
+  @Column({ type: 'datetime', precision: 3, nullable: true })
+  completedAt: Date | null;
+
   @OneToMany(() => ExecutionJobStatusLog, (status) => status.job)
   statuses: ExecutionJobStatusLog[];
 }

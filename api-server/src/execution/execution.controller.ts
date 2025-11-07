@@ -120,6 +120,10 @@ export class ExecutionController {
       status: latestStatus?.status || 'UNKNOWN',
       filePath: job.filePath,
       createdAt: job.createdAt,
+      output: job.output,
+      error: job.error,
+      exitCode: job.exitCode,
+      completedAt: job.completedAt,
       statusHistory: sortedStatuses.map((status: ExecutionJobStatusLog) => ({
         status: status.status,
         createdAt: status.createdAt,
