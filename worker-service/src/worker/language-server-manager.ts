@@ -83,8 +83,8 @@ export class LanguageServerManager implements OnModuleInit, OnModuleDestroy {
     this.logger.log(`Starting container for session ${sessionId}`);
 
     const container = await this.docker.createContainer({
-      Image: 'node:24-alpine',
-      Cmd: ['tail', '-f', '/dev/null'],
+      Image: 'dart:3.9.4',
+      Cmd: ['dart', 'language-server', '--protocol=lsp'],
       name: `lsp-${sessionId}`,
       HostConfig: {
         Memory: 512 * 1024 * 1024,
