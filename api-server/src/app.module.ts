@@ -7,6 +7,7 @@ import { typeOrmConfig } from './config/typeorm.config';
 import { ExecutionModule } from './execution/execution.module';
 import { UserModule } from './user/user.module';
 import { UtilModule } from './util/util.module';
+import { LanguageServerModule } from './language-server/language-server.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { UtilModule } from './util/util.module';
     AuthModule,
     UserModule,
     ExecutionModule,
+    LanguageServerModule,
   ],
   controllers: [AppController],
   providers: [AppService],
