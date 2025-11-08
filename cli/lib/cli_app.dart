@@ -21,18 +21,16 @@ class CliApp {
     await _init();
 
     while (true) {
-      clearScreen();
-      await _showMainMenu();
-      final choice = readLine('\n선택: ');
+      final choice = await _showMainMenu();
 
       switch (choice) {
-        case '1':
+        case 0: // 회원가입
           await authMenu.showRegister();
           break;
-        case '2':
+        case 1: // 로그인
           await authMenu.showLogin();
           break;
-        case '3':
+        case 2: // 로그아웃
           if (await storage.isLoggedIn()) {
             await authMenu.showLogout();
           } else {
@@ -40,14 +38,9 @@ class CliApp {
             waitForEnter();
           }
           break;
-        case '4':
-        case 'q':
-        case 'Q':
+        case 3: // 종료
           printInfo('프로그램을 종료합니다...');
           return;
-        default:
-          printError('잘못된 선택입니다');
-          waitForEnter();
       }
     }
   }
@@ -59,21 +52,24 @@ class CliApp {
     }
   }
 
-  Future<void> _showMainMenu() async {
-    printHeader('Full Stack Service CLI');
-
+  Future<int> _showMainMenu() async {
     final isLoggedIn = await storage.isLoggedIn();
+    String? statusText;
+
     if (isLoggedIn) {
       final email = await storage.getEmail();
-      printStatusLoggedIn(email!);
+      statusText = '${greenPen('● 로그인됨')}: ${cyanPen(email!)}';
     } else {
-      printStatusLoggedOut();
+      statusText = redPen('○ 로그인 필요');
     }
 
-    print('\n메뉴를 선택하세요:');
-    printMenuItem('1', '회원가입');
-    printMenuItem('2', '로그인');
-    printMenuItem('3', '로그아웃');
-    printMenuItem('4', '종료');
+    final options = [
+      '회원가입',
+      '로그인',
+      '로그아웃',
+      '종료',
+    ];
+
+    return selectMenu(options, statusText: statusText);
   }
 }
