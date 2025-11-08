@@ -1,20 +1,29 @@
 import 'api/api_client.dart';
 import 'api/auth_api.dart';
 import 'storage/token_storage.dart';
-import 'ui/auth_menu.dart';
+import 'ui/menu_item.dart';
+import 'ui/menus/register_menu_item.dart';
+import 'ui/menus/login_menu_item.dart';
+import 'ui/menus/logout_menu_item.dart';
+import 'ui/menus/exit_menu_item.dart';
 import 'ui/utils.dart';
 
 class CliApp {
   final ApiClient client;
   final AuthApi authApi;
   final TokenStorage storage;
-  late final AuthMenu authMenu;
+  late final List<MenuItem> menuItems;
 
   CliApp({String? baseUrl})
       : client = ApiClient(baseUrl: baseUrl ?? 'http://localhost:3000'),
         authApi = AuthApi(ApiClient(baseUrl: baseUrl ?? 'http://localhost:3000')),
         storage = TokenStorage() {
-    authMenu = AuthMenu(authApi, storage, client);
+    menuItems = [
+      RegisterMenuItem(authApi, storage, client),
+      LoginMenuItem(authApi, storage, client),
+      LogoutMenuItem(storage, client),
+      ExitMenuItem(),
+    ];
   }
 
   Future<void> run() async {
@@ -23,24 +32,10 @@ class CliApp {
     while (true) {
       final choice = await _showMainMenu();
 
-      switch (choice) {
-        case 0: // 회원가입
-          await authMenu.showRegister();
-          break;
-        case 1: // 로그인
-          await authMenu.showLogin();
-          break;
-        case 2: // 로그아웃
-          if (await storage.isLoggedIn()) {
-            await authMenu.showLogout();
-          } else {
-            printError('로그인되어 있지 않습니다');
-            waitForEnter();
-          }
-          break;
-        case 3: // 종료
-          printInfo('프로그램을 종료합니다...');
-          return;
+      await menuItems[choice].execute();
+
+      if (menuItems[choice] is ExitMenuItem) {
+        return;
       }
     }
   }
@@ -63,12 +58,7 @@ class CliApp {
       statusText = redPen('○ 로그인 필요');
     }
 
-    final options = [
-      '회원가입',
-      '로그인',
-      '로그아웃',
-      '종료',
-    ];
+    final options = menuItems.map((item) => item.label).toList();
 
     return selectMenu(options, statusText: statusText);
   }

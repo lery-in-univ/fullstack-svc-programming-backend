@@ -2,7 +2,6 @@ import 'dart:io';
 import 'package:ansicolor/ansicolor.dart';
 import 'package:dart_console/dart_console.dart';
 
-// ANSI 색상 펜 정의
 final greenPen = AnsiPen()..green(bold: true);
 final redPen = AnsiPen()..red(bold: true);
 final bluePen = AnsiPen()..blue(bold: true);
@@ -87,10 +86,8 @@ int selectMenu(List<String> options, {String? statusText}) {
 
     for (int i = 0; i < options.length; i++) {
       if (i == selectedIndex) {
-        // 선택된 항목 - 화살표와 함께 표시
         print('${cyanPen('▶')} ${whiteBoldPen(options[i])}');
       } else {
-        // 일반 항목
         print('  ${grayPen(options[i])}');
       }
     }
@@ -115,7 +112,7 @@ int selectMenu(List<String> options, {String? statusText}) {
     } else if (key.char == 'q' || key.char == 'Q') {
       console.clearScreen();
       console.resetCursorPosition();
-      return options.length - 1; // 종료 옵션 선택
+      return options.length - 1;
     }
   }
 }
