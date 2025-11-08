@@ -25,7 +25,7 @@ class LoginMenuItem implements MenuItem {
       printInfo('로그인 중...');
       final authResponse = await authApi.login(email, password);
 
-      await storage.saveToken(authResponse.token, email);
+      storage.saveToken(authResponse.token, email);
       client.setAuthToken(authResponse.token);
 
       printSuccess('로그인 성공!');

@@ -14,8 +14,8 @@ class LogoutMenuItem implements MenuItem {
 
   @override
   Future<void> execute() async {
-    if (await storage.isLoggedIn()) {
-      await storage.deleteToken();
+    if (storage.isLoggedIn()) {
+      storage.deleteToken();
       client.clearAuthToken();
       printSuccess('로그아웃되었습니다');
     } else {

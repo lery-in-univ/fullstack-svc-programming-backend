@@ -1,65 +1,26 @@
-import 'dart:io';
-import 'package:path/path.dart' as path;
-
 class TokenStorage {
-  late final String _tokenPath;
-  String? _cachedToken;
-  String? _cachedEmail;
+  String? _token;
+  String? _email;
 
-  TokenStorage() {
-    final home = Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'] ?? '.';
-    final configDir = path.join(home, '.fullstack_cli');
-    _tokenPath = path.join(configDir, 'token');
-
-    Directory(configDir).createSync(recursive: true);
+  void saveToken(String token, String email) {
+    _token = token;
+    _email = email;
   }
 
-  Future<void> saveToken(String token, String email) async {
-    final file = File(_tokenPath);
-    await file.writeAsString('$token\n$email');
-    _cachedToken = token;
-    _cachedEmail = email;
+  String? getToken() {
+    return _token;
   }
 
-  Future<String?> getToken() async {
-    if (_cachedToken != null) return _cachedToken;
-
-    final file = File(_tokenPath);
-    if (!await file.exists()) return null;
-
-    final lines = await file.readAsLines();
-    if (lines.isEmpty) return null;
-
-    _cachedToken = lines[0];
-    if (lines.length > 1) {
-      _cachedEmail = lines[1];
-    }
-    return _cachedToken;
+  String? getEmail() {
+    return _email;
   }
 
-  Future<String?> getEmail() async {
-    if (_cachedEmail != null) return _cachedEmail;
-
-    final file = File(_tokenPath);
-    if (!await file.exists()) return null;
-
-    final lines = await file.readAsLines();
-    if (lines.length < 2) return null;
-
-    _cachedEmail = lines[1];
-    return _cachedEmail;
+  void deleteToken() {
+    _token = null;
+    _email = null;
   }
 
-  Future<void> deleteToken() async {
-    final file = File(_tokenPath);
-    if (await file.exists()) {
-      await file.delete();
-    }
-    _cachedToken = null;
-    _cachedEmail = null;
-  }
-
-  Future<bool> isLoggedIn() async {
-    return await getToken() != null;
+  bool isLoggedIn() {
+    return _token != null;
   }
 }
