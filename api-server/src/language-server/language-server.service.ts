@@ -12,12 +12,13 @@ interface SessionData {
   userId: string;
   containerId?: string;
   createdAt: string;
+  lastActivity?: string;
 }
 
 @Injectable()
 export class LanguageServerService implements OnModuleDestroy {
   private readonly redis: Redis;
-  private readonly SESSION_TTL = 60;
+  private readonly SESSION_TTL = 600;
 
   constructor() {
     this.redis = new Redis({
@@ -86,5 +87,32 @@ export class LanguageServerService implements OnModuleDestroy {
     if (ttl > 0) {
       await this.redis.setex(key, ttl, JSON.stringify(sessionData));
     }
+  }
+
+  async getContainerId(sessionId: string): Promise<string | null> {
+    const sessionData = await this.getSession(sessionId);
+    return sessionData?.containerId || null;
+  }
+
+  async validateSessionOwnership(
+    sessionId: string,
+    userId: string,
+  ): Promise<boolean> {
+    const sessionData = await this.getSession(sessionId);
+    return sessionData?.userId === userId;
+  }
+
+  async updateLastActivity(sessionId: string): Promise<void> {
+    const key = `lsp:session:${sessionId}`;
+    const data = await this.redis.get(key);
+
+    if (!data) {
+      return;
+    }
+
+    const sessionData = JSON.parse(data) as SessionData;
+    sessionData.lastActivity = new Date().toISOString();
+
+    await this.redis.setex(key, this.SESSION_TTL, JSON.stringify(sessionData));
   }
 }
