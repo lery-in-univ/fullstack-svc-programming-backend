@@ -1,0 +1,1 @@
+class ExitAction implements Exception {}

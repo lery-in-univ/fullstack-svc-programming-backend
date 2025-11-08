@@ -1,4 +1,5 @@
 import '../menu_item.dart';
+import '../exit_action.dart';
 import '../utils.dart';
 
 class ExitMenuItem implements MenuItem {
@@ -8,5 +9,6 @@ class ExitMenuItem implements MenuItem {
   @override
   Future<void> execute() async {
     printInfo('프로그램을 종료합니다...');
+    throw ExitAction();
   }
 }

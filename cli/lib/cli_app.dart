@@ -6,6 +6,7 @@ import 'ui/menus/register_menu_item.dart';
 import 'ui/menus/login_menu_item.dart';
 import 'ui/menus/logout_menu_item.dart';
 import 'ui/menus/exit_menu_item.dart';
+import 'ui/exit_action.dart';
 import 'ui/utils.dart';
 
 class CliApp {
@@ -30,11 +31,10 @@ class CliApp {
     await _init();
 
     while (true) {
-      final choice = await _showMainMenu();
-
-      await menuItems[choice].execute();
-
-      if (menuItems[choice] is ExitMenuItem) {
+      try {
+        final choice = await _showMainMenu();
+        await menuItems[choice].execute();
+      } on ExitAction {
         return;
       }
     }
