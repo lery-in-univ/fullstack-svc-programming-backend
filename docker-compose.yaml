@@ -13,9 +13,11 @@ services:
         condition: service_started
     volumes:
       - code-files:/code-files
+      - lsp-files:/lsp-files
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
       - CODE_FILES_PATH=/code-files
+      - LSP_FILES_PATH=/lsp-files
     networks:
       - backend
 
@@ -31,9 +33,11 @@ services:
         condition: service_started
     volumes:
       - code-files:/code-files
+      - lsp-files:/lsp-files
       - /var/run/docker.sock:/var/run/docker.sock  # Mount host Docker socket
     environment:
       - CODE_FILES_PATH=/code-files
+      - LSP_FILES_PATH=/lsp-files
     networks:
       - backend
 
@@ -66,6 +70,8 @@ services:
 
 volumes:
   code-files:
+  lsp-files:
 
 networks:
   backend:
+    name: backend

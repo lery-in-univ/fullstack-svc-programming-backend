@@ -10,14 +10,18 @@ import {
 import { Server, Socket } from 'socket.io';
 import { Logger, UnauthorizedException } from '@nestjs/common';
 import Docker from 'dockerode';
+import * as net from 'net';
 import { LanguageServerService } from './language-server.service';
 import { TokenManager } from '../util/token-manager';
 import type { Requester } from '../auth/requester.decorator';
+import { LspUriTransformer } from './lsp-uri-transformer';
+import { LspResponseBuffer } from './lsp-response-buffer';
 
 interface ClientSession {
   sessionId: string;
   userId: string;
-  stream: any;
+  stream: net.Socket;
+  workspaceRoot: string;
 }
 
 @WebSocketGateway({ cors: true, namespace: '/lsp' })
@@ -30,6 +34,7 @@ export class LanguageServerGateway
   private readonly logger = new Logger(LanguageServerGateway.name);
   private readonly docker: Docker;
   private readonly clientSessions = new Map<string, ClientSession>();
+  private readonly LSP_CONTAINER_PORT = 9000;
 
   constructor(
     private readonly languageServerService: LanguageServerService,
@@ -63,7 +68,7 @@ export class LanguageServerGateway
   handleDisconnect(client: Socket) {
     const session = this.clientSessions.get(client.id);
     if (session?.stream) {
-      session.stream.destroy();
+      session.stream.end();
     }
     this.clientSessions.delete(client.id);
     this.logger.log(`Client disconnected: ${client.id}`);
@@ -74,6 +79,10 @@ export class LanguageServerGateway
     @ConnectedSocket() client: Socket,
     @MessageBody() payload: { sessionId: string },
   ) {
+    this.logger.log(
+      ['lsp-connect message', JSON.stringify(payload, null, 2)].join('\n'),
+    );
+
     try {
       const { sessionId } = payload;
       const userId: string = client.data.userId;
@@ -90,50 +99,83 @@ export class LanguageServerGateway
         return;
       }
 
-      const containerId =
-        await this.languageServerService.getContainerId(sessionId);
-      if (!containerId) {
+      const session = await this.languageServerService.getSession(sessionId);
+      if (!session?.containerId || !session?.containerName) {
         client.emit('lsp-error', { error: 'Container not ready', code: 404 });
         return;
       }
 
-      const container = this.docker.getContainer(containerId);
-      const stream = await container.attach({
-        stream: true,
-        stdin: true,
-        stdout: true,
-        stderr: true,
-        hijack: true,
+      // Get workspace root for URI transformation
+      const workspaceRoot = session.workspaceRoot || `/lsp-files/${sessionId}`;
+
+      // Get container IP address from Docker network
+      const container = this.docker.getContainer(session.containerId);
+      const containerInfo = await container.inspect();
+      const networks = containerInfo.NetworkSettings.Networks;
+      const backendNetwork = networks['backend'];
+
+      if (!backendNetwork?.IPAddress) {
+        client.emit('lsp-error', {
+          error: 'Container network not ready',
+          code: 404,
+        });
+        return;
+      }
+
+      const containerIp = backendNetwork.IPAddress;
+
+      // Create TCP connection to container
+      const tcpSocket = new net.Socket();
+      const lspResponseBuffer = new LspResponseBuffer();
+
+      tcpSocket.connect(this.LSP_CONTAINER_PORT, containerIp, () => {
+        this.logger.log(
+          `TCP connected to ${containerIp}:${this.LSP_CONTAINER_PORT} for session ${sessionId}`,
+        );
+
+        this.clientSessions.set(client.id, {
+          sessionId,
+          userId,
+          stream: tcpSocket,
+          workspaceRoot,
+        });
+
+        client.emit('lsp-connected', { success: true, sessionId });
       });
 
-      this.clientSessions.set(client.id, {
-        sessionId,
-        userId,
-        stream,
+      tcpSocket.on('data', (chunk: Buffer) => {
+        lspResponseBuffer.onData(chunk);
       });
 
-      stream.on('data', (chunk: Buffer) => {
-        const message = this.demuxDockerStream(chunk);
-        if (message) {
-          client.emit('lsp-message', { message });
-        }
+      lspResponseBuffer.on('message', (rawMessage: string) => {
+        this.logger.log(['[LSP Response]', rawMessage].join('\n'));
+
+        const currentSession = this.clientSessions.get(client.id);
+        const transformedMessage = currentSession
+          ? LspUriTransformer.transformResponseMessage(
+              rawMessage,
+              currentSession.workspaceRoot,
+            )
+          : rawMessage;
+
+        client.emit('lsp-message', { message: transformedMessage.toString() });
       });
 
-      stream.on('error', (error) => {
-        this.logger.error(`Stream error for session ${sessionId}`, error);
-        client.emit('lsp-error', { error: 'Stream error', code: 500 });
+      tcpSocket.on('error', (error) => {
+        this.logger.error(`TCP error for session ${sessionId}`, error);
+        client.emit('lsp-error', { error: 'Connection error', code: 500 });
       });
 
-      stream.on('end', () => {
-        this.logger.log(`Stream ended for session ${sessionId}`);
-        client.emit('lsp-disconnected', { reason: 'Container stopped' });
+      tcpSocket.on('close', () => {
+        this.logger.log(`TCP connection closed for session ${sessionId}`);
+        client.emit('lsp-disconnected', { reason: 'Connection closed' });
+        this.clientSessions.delete(client.id);
       });
 
       await this.languageServerService.updateLastActivity(sessionId);
 
-      client.emit('lsp-connected', { success: true, sessionId });
       this.logger.log(
-        `LSP connected: client ${client.id}, session ${sessionId}`,
+        `LSP connecting: client ${client.id}, session ${sessionId}`,
       );
     } catch (error) {
       this.logger.error('Failed to connect to LSP', error);
@@ -146,6 +188,8 @@ export class LanguageServerGateway
     @ConnectedSocket() client: Socket,
     @MessageBody() payload: { message: string },
   ) {
+    this.logger.log(['lsp-message message', payload.message].join('\n'));
+
     try {
       const session = this.clientSessions.get(client.id);
       if (!session?.stream) {
@@ -153,26 +197,19 @@ export class LanguageServerGateway
         return;
       }
 
-      session.stream.write(payload.message);
+      // Transform client URIs to container URIs before sending
+      const transformedMessage = LspUriTransformer.transformMessage(
+        payload.message,
+        session.workspaceRoot,
+      );
+
+      this.logger.log(['Transformed message', transformedMessage].join('\n'));
+
+      session.stream.write(transformedMessage);
       await this.languageServerService.updateLastActivity(session.sessionId);
     } catch (error) {
       this.logger.error('Failed to send message to LSP', error);
       client.emit('lsp-error', { error: 'Failed to send message', code: 500 });
     }
-  }
-
-  private demuxDockerStream(chunk: Buffer): string | null {
-    if (chunk.length < 8) {
-      return chunk.toString();
-    }
-
-    const header = chunk.readUInt8(0);
-    if (header > 2) {
-      return chunk.toString();
-    }
-
-    const size = chunk.readUInt32BE(4);
-    const payload = chunk.slice(8, 8 + size);
-    return payload.toString();
   }
 }

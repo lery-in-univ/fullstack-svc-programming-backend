@@ -1,4 +1,13 @@
-import { Controller, Post, Param, HttpCode } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Param,
+  HttpCode,
+  UseInterceptors,
+  UploadedFile,
+  BadRequestException,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { LanguageServerService } from './language-server.service';
 import { Auth } from '../auth/auth.decorator';
 import { GetRequester } from '../auth/requester.decorator';
@@ -25,5 +34,48 @@ export class LanguageServerController {
     @GetRequester() requester: Requester,
   ): Promise<void> {
     return this.languageServerService.renewSession(sessionId, requester.userId);
+  }
+
+  @Auth()
+  @Post('sessions/:sessionId/files')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: {
+        fileSize: 1 * 1024 * 1024, // 1MB
+      },
+      fileFilter: (_req, file, callback) => {
+        const allowedExtensions = ['.dart'];
+        const ext = file.originalname.substring(
+          file.originalname.lastIndexOf('.'),
+        );
+        if (allowedExtensions.includes(ext)) {
+          callback(null, true);
+        } else {
+          callback(
+            new BadRequestException(
+              `File type not allowed. Only .dart files are allowed.`,
+            ),
+            false,
+          );
+        }
+      },
+    }),
+  )
+  async uploadFile(
+    @Param('sessionId') sessionId: string,
+    @GetRequester() requester: Requester,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    if (!file) {
+      throw new BadRequestException('File is required');
+    }
+
+    const result = await this.languageServerService.uploadFile(
+      sessionId,
+      requester.userId,
+      file,
+    );
+
+    return result;
   }
 }
