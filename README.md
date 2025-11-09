@@ -20,13 +20,6 @@ graph LR
     WORKER --> MYSQL
     WORKER --> REDIS
     WORKER --> DOCKER
-
-    style CLI fill:#e1f5ff
-    style API fill:#fff4e1
-    style WORKER fill:#ffe1f5
-    style MYSQL fill:#e1ffe1
-    style REDIS fill:#ffe1e1
-    style DOCKER fill:#f0f0f0
 ```
 
 ## 주요 컴포넌트
