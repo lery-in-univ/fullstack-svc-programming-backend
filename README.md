@@ -2,6 +2,12 @@
 
 2025-2에 수강한 풀스택 서비스 프로그래밍 강의에서 진행하는 프로젝트의 레포지토리입니다.
 
+## 주요 기능
+
+- 유저 회원가입 및 로그인
+- Dart 코드 실행
+- Dart Language Server 실행 및 [Goto Definition](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_definition) 지원
+
 ## 시스템 아키텍처
 
 ```mermaid
